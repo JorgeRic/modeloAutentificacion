@@ -1,12 +1,20 @@
 'use strict';
+
+// paquetes: - express --hbs --git nombre de la nueva carpeta / npm milligram / npm install / eslint --init / npm mongoose /
+// npm install express-session connect-mongo / npm install bcrypt / npm install --save connect-flash
 const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const mongoose = require('mongoose');
+const hbs = require('hbs');
+const session = require('express-session');
+const MongoStore = require('connect-mongo')(session);
+const flash = require('connect-flash');
+
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
-const hbs = require('hbs');
+const authRouter = require('./routes/auth');
 
 const app = express();
 
@@ -16,6 +24,27 @@ mongoose.connect('mongodb://localhost/proyectocine', {
   useNewUrlParser: true,
   reconnectTries: Number.MAX_VALUE
 });
+
+app.use(session({
+  store: new MongoStore({
+    mongooseConnection: mongoose.connection,
+    ttl: 24 * 60 * 60 // 1 day
+  }),
+  secret: 'some-string',
+  resave: true,
+  saveUninitialized: true,
+  cookie: {
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000
+  }
+}));
+app.use(flash());
+
+app.use((req, res, next) => {
+  app.locals.currentUser = req.session.currentUser;
+  next();
+});
+
 // view engine setup
 app.set('view engine', 'hbs');
 app.set('views', path.join(__dirname, '/views'));
@@ -29,6 +58,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+app.use('/auth', authRouter);
 
 // -- 404 and error handler
 
